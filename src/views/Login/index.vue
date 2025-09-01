@@ -2,6 +2,7 @@
 import {reactive} from 'vue';
 import axios from 'axios';
 import {SM3Util} from "@/utils/SM3Util";
+import router from "@/router";
 
 const form = reactive({
   username: '',
@@ -50,7 +51,7 @@ const onSubmit = async () => {
     localStorage.setItem('tokenValue', value.data.tokenValue);
 
     // 登录成功后可以添加路由跳转
-    // router.push('/home');
+    await router.push('/home');
   }
   console.log(value)
 }
