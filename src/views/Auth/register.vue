@@ -1,31 +1,37 @@
 <script lang="ts" setup>
-import {reactive} from 'vue';
-import axios from 'axios';
-import {SM3Util} from "@/utils/SM3Util";
+
+import {reactive} from "vue";
+import axios from "axios";
 import router from "@/router";
 
 const form = reactive({
   username: '',
-  password: ''
+  email: ''
 })
 
 // 添加加载状态和密码显示状态
 const state = reactive({
   loading: false,
-  showPassword: false
+  emailValid: false
 })
 
-async function login() {
+const validateEmail = (email: string) => {
+  const reg = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  state.emailValid = reg.test(email);
+  return state.emailValid;
+}
+
+async function register() {
   try {
     // 显示加载状态
     state.loading = true;
 
     const response = await axios({
       method: 'POST',
-      url: 'http://localhost:8080/sys/login',
+      url: 'http://localhost:8080/sys/register',
       data: {
         userName: form.username,
-        password: SM3Util.encrypt(form.password)
+        email: form.email
       },
       headers: {
         'Content-Type': 'application/json'
@@ -35,7 +41,7 @@ async function login() {
 
   } catch (error: any) {
     console.log(error)
-    return {code: 500, message: error.message || '登录失败'}
+    return {code: 500, message: error.message || '注册失败'}
   } finally {
     // 隐藏加载状态
     state.loading = false;
@@ -43,42 +49,40 @@ async function login() {
 }
 
 const onSubmit = async () => {
-  let value = await login()
+  let value = await register();
   if (value.code === 200) {
-    localStorage.setItem('userName', value.data.userName);
-    localStorage.setItem('role', value.data.role);
-    localStorage.setItem('tokenName', value.data.tokenName);
-    localStorage.setItem('tokenValue', value.data.tokenValue);
-
-    // 登录成功后可以添加路由跳转
-    await router.push('/home');
+    alert('注册成功')
+    router.push("/login").then(error => {
+      console.log(error)
+    })
+  } else {
+    alert(value.message)
   }
-  console.log(value)
 }
 </script>
 
 <template>
   <div class="fullscreen-background"></div>
   <div>
-    <!-- 登录卡片容器 -->
+    <!-- 注册卡片容器 -->
     <div class="login-wrapper">
-      <!-- 登录卡片 -->
+      <!-- 注册卡片 -->
       <div class="login-card">
-        <!-- 登录标题区域 -->
+        <!-- 注册标题区域 -->
         <div class="login-header">
           <div class="logo">
             <img alt="CoinSec Logo" class="logo-img" src="@/assets/logo.svg"/>
           </div>
-          <h1>系统登录</h1>
-          <p>请输入账号信息登录系统</p>
+          <h1>注册</h1>
+          <p>请输入账号信息注册系统</p>
         </div>
 
-        <!-- 登录表单 -->
+        <!-- 注册表单 -->
         <el-form
             :model="form"
             :rules="{
             username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-            password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+            email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }]
           }"
             class="login-form"
             label-width="80px"
@@ -92,18 +96,17 @@ const onSubmit = async () => {
             />
           </el-form-item>
 
-          <el-form-item label="密码" prop="password">
+          <el-form-item label="邮箱" prop="email">
             <el-input
-                v-model="form.password"
-                :type="state.showPassword ? 'text' : 'password'"
+                v-model="form.email"
                 class="form-input"
-                placeholder="请输入密码"
-                prefix-icon="Lock"
+                placeholder="请输入邮箱"
+                prefix-icon="Message"
+                type="text"
+                @input="validateEmail(form.email)"
             >
               <template #suffix>
-                <el-icon class="cursor-pointer" @click="state.showPassword = !state.showPassword">
-                  <EyeOff v-if="state.showPassword"/>
-                  <Eye v-else/>
+                <el-icon v-if="form.email && state.emailValid" class="text-success">
                 </el-icon>
               </template>
             </el-input>
@@ -116,11 +119,14 @@ const onSubmit = async () => {
                 type="primary"
                 @click="onSubmit"
             >
-              登录
+              注册
             </el-button>
             <div class="links">
-              <a class="link" href="#">忘记密码?</a>
-              <a class="link" href="#">注册账号</a>
+              <a class="link">
+                <router-link to="/login">
+                  登录
+                </router-link>
+              </a>
             </div>
           </el-form-item>
         </el-form>
@@ -129,7 +135,7 @@ const onSubmit = async () => {
 
     <!-- 页脚 -->
     <footer class="login-footer">
-      © 2023 系统登录页面 - 版权所有
+      © 2023 系统注册页面 - 版权所有
     </footer>
   </div>
 </template>
@@ -179,7 +185,7 @@ const onSubmit = async () => {
   box-sizing: border-box;
   max-width: 1200px;
   position: relative;
-  z-index: 2; /* 确保登录卡片在背景上方 */
+  z-index: 2; /* 确保注册卡片在背景上方 */
 }
 
 .login-card {
