@@ -5,22 +5,35 @@ import {sm3} from 'sm-crypto';
 import router from "@/router";
 import {Eye, EyeOff} from 'lucide-vue-next';
 
+// 登录表单数据
 const form = reactive({
   username: '',
   password: ''
 })
 
-// 添加加载状态和密码显示状态
+// 状态管理
 const state = reactive({
   loading: false,
-  showPassword: false
+  showPassword: false,
+  showSetPasswordModal: false // 控制密码设置弹窗显示
 })
 
+// 密码设置表单
+const passwordForm = reactive({
+  newPassword: '',
+  confirmPassword: ''
+})
+
+// 密码验证状态
+const passwordState = reactive({
+  mismatch: false,
+  error: ''
+})
+
+// 登录处理
 async function login() {
   try {
     let password = sm3(form.password);
-    console.log(password);
-    // 显示加载状态
     state.loading = true;
 
     const response = await axios({
@@ -40,30 +53,95 @@ async function login() {
     console.log(error)
     return {code: 500, message: error.message || '登录失败'}
   } finally {
-    // 隐藏加载状态
     state.loading = false;
   }
 }
 
+// 提交新密码
+async function submitNewPassword() {
+  // 验证密码
+  if (!passwordForm.newPassword) {
+    passwordState.error = '请输入新密码';
+    return;
+  }
+
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    passwordState.mismatch = true;
+    passwordState.error = '';
+    return;
+  }
+
+  // 可以添加密码强度验证
+  if (passwordForm.newPassword.length < 6) {
+    passwordState.error = '密码长度不能少于6位';
+    return;
+  }
+
+  try {
+    // 调用API提交新密码
+    const encryptedPassword = sm3(passwordForm.newPassword);
+    await axios({
+      method: 'POST',
+      url: 'http://localhost:8080/sys/update-password',
+      params: {
+        userId: localStorage.getItem('userId'),
+        newPassword: encryptedPassword
+      },
+      headers: {
+        [localStorage.getItem('tokenName') as string]: localStorage.getItem('tokenValue')
+      }
+    })
+
+    // 密码设置成功，关闭弹窗并跳转到首页
+    state.showSetPasswordModal = false;
+    passwordForm.newPassword = '';
+    passwordForm.confirmPassword = '';
+    passwordState.mismatch = false;
+    passwordState.error = '';
+
+  } catch (error: any) {
+    passwordState.error = error.message || '密码设置失败，请重试';
+  }
+}
+
+// 表单提交
 const onSubmit = async () => {
-  let value = await login()
+  let value = await login();
+  console.log(value);
+
   if (value.code === 200) {
+    // 保存用户信息
+    localStorage.setItem('userId', value.data.userId);
     localStorage.setItem('userName', value.data.userName);
     localStorage.setItem('role', value.data.role);
     localStorage.setItem('tokenName', value.data.tokenName);
     localStorage.setItem('tokenValue', value.data.tokenValue);
 
-    // 添加详细的日志输出
-    console.log('登录成功，设置的token值:', value.data.tokenValue);
-    console.log('localStorage中的token值:', localStorage.getItem('tokenValue'));
-
-    router.push('/home').catch(error => {
-      console.log(error)
-    })
+    // 首次登录需要设置密码
+    if (value.data.firstLogin) {
+      state.showSetPasswordModal = true; // 显示密码设置弹窗
+    } else if (value.data.role == 'ADMIN') {
+      router.push('/admin').catch(error => {
+        console.log(error)
+      })
+    } else if (value.data.role == 'USER') {
+      router.push('/user').catch(error => {
+        console.log(error)
+      })
+    } else {
+      alert('登录失败，请重试')
+    }
   } else {
     alert(value.message || '登录失败，请重试')
   }
-  console.log(value)
+}
+
+// 检查密码匹配
+const checkPasswordMatch = () => {
+  passwordState.mismatch = passwordForm.newPassword !== passwordForm.confirmPassword;
+  if (passwordState.mismatch) {
+    passwordState.error = '';
+  }
 }
 </script>
 
@@ -151,6 +229,48 @@ const onSubmit = async () => {
       © 2023 系统登录页面 - 版权所有
     </footer>
   </div>
+
+  <!-- 首次登录密码设置弹窗 -->
+  <el-dialog
+      v-model="state.showSetPasswordModal"
+      :close-on-click-modal="false"
+      :show-close="false"
+      title="设置初始密码"
+      width="400px"
+  >
+    <div class="password-setting">
+      <p class="text-gray-600 mb-4">请设置您的初始登录密码以完成首次登录</p>
+
+      <el-form-item class="mb-2" label="新密码">
+        <el-input
+            v-model="passwordForm.newPassword"
+            placeholder="请输入新密码"
+            prefix-icon="Lock"
+            type="password"
+            @input="checkPasswordMatch"
+        />
+      </el-form-item>
+
+      <el-form-item class="mb-2" label="确认密码">
+        <el-input
+            v-model="passwordForm.confirmPassword"
+            placeholder="请再次输入密码"
+            prefix-icon="Lock"
+            type="password"
+            @input="checkPasswordMatch"
+        />
+        <p v-if="passwordState.mismatch" class="text-red-500 text-xs mt-1">两次输入的密码不一致</p>
+      </el-form-item>
+
+      <p v-if="passwordState.error" class="text-red-500 text-xs mt-1">{{ passwordState.error }}</p>
+    </div>
+
+    <template #footer>
+      <el-button type="primary" @click="submitNewPassword">
+        确认设置
+      </el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <style scoped>
@@ -335,6 +455,11 @@ const onSubmit = async () => {
 
 .cursor-pointer:hover {
   color: #409eff;
+}
+
+/* 密码设置弹窗样式 */
+.password-setting {
+  margin-top: 10px;
 }
 
 /* 适配不同屏幕尺寸 */

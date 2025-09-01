@@ -3,6 +3,7 @@ import {createRouter, createWebHistory} from 'vue-router'
 const Login = () => import('@/views/Auth/login.vue')
 const Register = () => import('@/views/Auth/register.vue')
 const Home = () => import('@/views/Home/index.vue')
+const Admin = () => import('@/views/Admin/index.vue')
 const AboutView = () => import('@/views/About/index.vue')
 
 const routes = [
@@ -25,6 +26,14 @@ const routes = [
         path: '/home',
         name: 'Home',
         component: Home,
+        meta: {
+            requiresAuth: true
+        }
+    },
+    {
+        path: '/admin',
+        name: 'Admin',
+        component: Admin,
         meta: {
             requiresAuth: true
         }
